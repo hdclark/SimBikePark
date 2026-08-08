@@ -29,11 +29,20 @@ jobs:
         run: gradle --no-daemon testDebugUnitTest
       - name: Build full release APK
         run: gradle --no-daemon assembleRelease
-      - name: Decode stable development signing key
+      - name: Prepare stable development signing material
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/simbikepark-signing"
-          base64 --decode ci/simbikepark-dev.keystore.b64 > "$RUNNER_TEMP/simbikepark-signing/simbikepark-dev.keystore"
+          set -euo pipefail
+          openssl pkcs8 \
+            -topk8 \
+            -nocrypt \
+            -in ci/simbikepark-dev-private.pem \
+            -outform DER \
+            -out "$RUNNER_TEMP/simbikepark-dev.pk8"
+          openssl x509 \
+            -in ci/simbikepark-dev-cert.pem \
+            -outform DER \
+            -out "$RUNNER_TEMP/simbikepark-dev-cert.der"
       - name: Align, sign, and verify installable APK
         shell: bash
         run: |
@@ -42,14 +51,11 @@ jobs:
           UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
           ALIGNED="$RUNNER_TEMP/SimBikePark-release-aligned.apk"
           SIGNED="app/build/outputs/apk/release/SimBikePark-release.apk"
-          KEYSTORE="$RUNNER_TEMP/simbikepark-signing/simbikepark-dev.keystore"
 
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
           "$BUILD_TOOLS/apksigner" sign \
-            --ks "$KEYSTORE" \
-            --ks-key-alias simbikepark \
-            --ks-pass pass:simbikepark \
-            --key-pass pass:simbikepark \
+            --key "$RUNNER_TEMP/simbikepark-dev.pk8" \
+            --cert "$RUNNER_TEMP/simbikepark-dev-cert.der" \
             --v1-signing-enabled true \
             --v2-signing-enabled true \
             --v3-signing-enabled true \
