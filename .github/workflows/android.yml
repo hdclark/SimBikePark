@@ -27,12 +27,41 @@ jobs:
           gradle-version: '8.9'
       - name: Unit tests
         run: gradle --no-daemon testDebugUnitTest
-      - name: Build full APK
+      - name: Build full release APK
         run: gradle --no-daemon assembleRelease
-      - name: Upload APK
+      - name: Decode stable development signing key
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/simbikepark-signing"
+          base64 --decode ci/simbikepark-dev.keystore.b64 > "$RUNNER_TEMP/simbikepark-signing/simbikepark-dev.keystore"
+      - name: Align, sign, and verify installable APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="$RUNNER_TEMP/SimBikePark-release-aligned.apk"
+          SIGNED="app/build/outputs/apk/release/SimBikePark-release.apk"
+          KEYSTORE="$RUNNER_TEMP/simbikepark-signing/simbikepark-dev.keystore"
+
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias simbikepark \
+            --ks-pass pass:simbikepark \
+            --key-pass pass:simbikepark \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$SIGNED" \
+            "$ALIGNED"
+
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$SIGNED"
+          test -s "$SIGNED"
+      - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
           name: SimBikePark-release-apk
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          path: app/build/outputs/apk/release/SimBikePark-release.apk
           if-no-files-found: error
           retention-days: 30
