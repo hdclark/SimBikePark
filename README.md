@@ -1,3 +1,27 @@
-# SimBikePark
+# Sim Bike Park 🚲💥
 
-Android bike-park builder game. Development happens through pull requests and GitHub Actions.
+A bright, blocky Android bike-park toy built with Kotlin and Jetpack Compose. Snap sequential isometric trail blocks together, then release three computer-controlled riders at once and discover which trail feature turns confidence into cartwheels.
+
+## Features
+
+- Isometric 2.5D, cel-shaded park rendered with Compose Canvas.
+- 14 buildable features: table tops, gap jumps, dirt jumps, wooden skinnies, launcher logs, drops, teeter-totters, saloon doors, toilet bowls, rock rolls, crocodile pits, rocks, roots, and berms.
+- Snap-together connector geometry with left/straight/right placement and continuous rider paths.
+- Pinch to zoom the board from 55% to 400%, drag to pan, and use **Reset view** to return to the fitted board.
+- Three simultaneous simulated riders selected from a roster with different air, balance, nerve, and technical abilities.
+- Feature-specific crash susceptibility and animated, deliberately silly crash outcomes.
+- Successful riders stay visually upright: isometric travel direction is treated as world yaw rather than screen roll, and normal feature pitch/lean is bounded. Crash animations can still tumble freely.
+- Local named trail saves and loads using Android SharedPreferences/JSON; no account or network access required.
+- Emoji used as visual punctuation for riders and comedy while the terrain itself is drawn as solid-color isometric geometry.
+
+## Building and installing
+
+GitHub Actions is the supported build environment. The `Build Android APK` workflow installs Java 17 and Android SDK 35, runs unit tests, builds the release variant, zip-aligns it, signs it, verifies the resulting signature with `apksigner`, and uploads `SimBikePark-release.apk` as the `SimBikePark-release-apk` artifact.
+
+The repository contains a stable **development-only** PEM signing key and certificate for CI. This is deliberate: CI is the project's supported APK build path, and a stable certificate allows APKs from later workflow runs to update an existing SimBikePark installation instead of failing because the signing certificate changed between ephemeral runners. The private key is public and must never be used for a Play Store or production release.
+
+Development certificate SHA-256 fingerprint:
+
+`1F:1D:73:2E:1D:8B:3A:4C:90:EF:1B:50:F4:CD:74:3A:35:A6:E8:08:50:26:34:5E:31:B0:99:D2:40:57:C4:95`
+
+Download the `SimBikePark-release-apk` artifact from a successful GitHub Actions run, unzip it, and install `SimBikePark-release.apk` on the Android device. If a device already has a SimBikePark APK signed with a different development key, uninstall that older build once before installing the CI-signed build.

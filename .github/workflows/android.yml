@@ -1,0 +1,73 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, 'agent/**' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Unit tests
+        run: gradle --no-daemon testDebugUnitTest
+      - name: Build full release APK
+        run: gradle --no-daemon assembleRelease
+      - name: Prepare stable development signing material
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl pkcs8 \
+            -topk8 \
+            -nocrypt \
+            -in ci/simbikepark-dev-private.pem \
+            -outform DER \
+            -out "$RUNNER_TEMP/simbikepark-dev.pk8"
+          openssl x509 \
+            -in ci/simbikepark-dev-cert.pem \
+            -outform DER \
+            -out "$RUNNER_TEMP/simbikepark-dev-cert.der"
+      - name: Align, sign, and verify installable APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="$RUNNER_TEMP/SimBikePark-release-aligned.apk"
+          SIGNED="app/build/outputs/apk/release/SimBikePark-release.apk"
+
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign \
+            --key "$RUNNER_TEMP/simbikepark-dev.pk8" \
+            --cert "$RUNNER_TEMP/simbikepark-dev-cert.der" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$SIGNED" \
+            "$ALIGNED"
+
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$SIGNED"
+          test -s "$SIGNED"
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimBikePark-release-apk
+          path: app/build/outputs/apk/release/SimBikePark-release.apk
+          if-no-files-found: error
+          retention-days: 30
