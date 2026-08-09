@@ -329,8 +329,7 @@ private fun DrawScope.drawRiders(
         if (progress >= pieces.size) {
             val q = ((progress - pieces.size) / .70f).coerceIn(0f, 1f)
             val pos = lerp(finishEntry, finishCenter, q) - Offset(0f, 14f + plan.laneOffset*18f)
-            val tangent = unit(minus(finishCenter, finishEntry))
-            drawBikeAndRider(pos, angleOf(tangent), 1f, plan.rider)
+            drawBikeAndRider(pos, 0f, 1f, plan.rider)
             return@forEachIndexed
         }
 
@@ -353,7 +352,7 @@ private fun DrawScope.drawRiders(
             drawFeatureCrash(pieces[pieceIndex].type, pos, tangent, across, age, w, plan.rider)
         } else {
             drawInteractionEffect(pieces[pieceIndex].type, pos, local, w)
-            drawBikeAndRider(pos, angleOf(tangent) + pose.rotation, pose.scale, plan.rider)
+            drawBikeAndRider(pos, RiderVisuals.uprightLean(pose.rotation), pose.scale, plan.rider)
         }
     }
 }
