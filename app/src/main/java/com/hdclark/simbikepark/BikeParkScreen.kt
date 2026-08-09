@@ -23,15 +23,16 @@ fun BikeParkScreen(vm: ParkViewModel) {
     var showLoad by remember { mutableStateOf(false) }
     var elapsed by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(vm.simulationRunning, vm.simulation) {
+    LaunchedEffect(vm.simulationRunning, vm.simulation, vm.trail.size) {
         if (!vm.simulationRunning) return@LaunchedEffect
         elapsed = 0f
         var last = withFrameNanos { it }
+        val duration = TrackSimulator.durationSeconds(vm.trail.size, vm.simulation)
         while (isActive && vm.simulationRunning) {
             val now = withFrameNanos { it }
             elapsed += (now - last) / 1_000_000_000f
             last = now
-            if (elapsed > 9.2f) vm.finishSimulation()
+            if (elapsed > duration) vm.finishSimulation()
         }
     }
 
@@ -85,14 +86,14 @@ fun BikeParkScreen(vm: ParkViewModel) {
                         Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🏗️", style = MaterialTheme.typography.displaySmall)
                             Text("Your mountain is suspiciously safe.", fontWeight = FontWeight.Bold)
-                            Text("Tap a feature below to snap the first block into place.", style = MaterialTheme.typography.bodySmall)
+                            Text("Pick left, straight, or right, then snap in a feature.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
                 if (vm.simulationRunning) {
                     AssistChip(
                         onClick = {},
-                        label = { Text("Three riders released!  🧑‍🚀🧑‍🔧🧑‍🎤") },
+                        label = { Text("Three riders released! Every obstacle has opinions. 💥") },
                         modifier = Modifier.align(Alignment.TopCenter).padding(10.dp)
                     )
                 }
@@ -111,7 +112,11 @@ fun BikeParkScreen(vm: ParkViewModel) {
                 }
             }
 
-            HeadingRow(vm.nextHeading, onRotate = vm::rotate)
+            HeadingRow(
+                incomingHeading = vm.trail.lastOrNull()?.heading ?: vm.nextHeading,
+                nextHeading = vm.nextHeading,
+                onTurn = vm::setTurn
+            )
             FeaturePalette(onPick = vm::add)
         }
     }
@@ -132,13 +137,19 @@ private fun ActionRow(canUndo: Boolean, canSim: Boolean, running: Boolean, onUnd
 }
 
 @Composable
-private fun HeadingRow(heading: Int, onRotate: (Int) -> Unit) {
-    val arrow = listOf("↗", "↘", "↙", "↖")[heading.mod(4)]
-    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Next block: $arrow", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        FilledTonalButton(onClick = { onRotate(-1) }) { Text("Turn left ↶") }
-        Spacer(Modifier.width(6.dp))
-        FilledTonalButton(onClick = { onRotate(1) }) { Text("↷ Right") }
+private fun HeadingRow(incomingHeading: Int, nextHeading: Int, onTurn: (Int) -> Unit) {
+    val arrows = listOf("↗", "↘", "↙", "↖")
+    val incoming = arrows[incomingHeading.mod(4)]
+    val outgoing = arrows[nextHeading.mod(4)]
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text("Snap: $incoming → $outgoing", fontWeight = FontWeight.Bold)
+        FilledTonalButton(onClick = { onTurn(-1) }) { Text("↶ Left") }
+        FilledTonalButton(onClick = { onTurn(0) }) { Text("↑ Straight") }
+        FilledTonalButton(onClick = { onTurn(1) }) { Text("Right ↷") }
     }
 }
 
