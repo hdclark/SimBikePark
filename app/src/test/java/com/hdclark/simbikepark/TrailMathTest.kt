@@ -1,5 +1,6 @@
 package com.hdclark.simbikepark
 
+import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -41,6 +42,19 @@ class TrailMathTest {
         assertEquals(FeatureType.entries.size, samples.values.toSet().size)
         samples.values.flatten().forEach { pose ->
             assertTrue(pose.scale > 0f)
+        }
+    }
+
+    @Test fun `successful rider poses always remain upright`() {
+        FeatureType.entries.forEach { type ->
+            for (step in 0..100) {
+                val pose = FeatureDynamics.pose(type, step / 100f, 1)
+                val lean = RiderVisuals.uprightLean(pose.rotation)
+                assertTrue(abs(lean) <= RiderVisuals.MAX_NORMAL_LEAN_DEGREES + .001f)
+            }
+        }
+        listOf(-1080f, -540f, -180f, 0f, 180f, 540f, 1080f).forEach { requested ->
+            assertTrue(abs(RiderVisuals.uprightLean(requested)) <= RiderVisuals.MAX_NORMAL_LEAN_DEGREES + .001f)
         }
     }
 
