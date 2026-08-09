@@ -3,6 +3,7 @@ package com.hdclark.simbikepark
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
@@ -22,6 +26,8 @@ fun BikeParkScreen(vm: ParkViewModel) {
     var showSave by remember { mutableStateOf(false) }
     var showLoad by remember { mutableStateOf(false) }
     var elapsed by remember { mutableFloatStateOf(0f) }
+    var boardScale by remember { mutableFloatStateOf(1f) }
+    var boardOffset by remember { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(vm.simulationRunning, vm.simulation, vm.trail.size) {
         if (!vm.simulationRunning) return@LaunchedEffect
@@ -33,6 +39,13 @@ fun BikeParkScreen(vm: ParkViewModel) {
             elapsed += (now - last) / 1_000_000_000f
             last = now
             if (elapsed > duration) vm.finishSimulation()
+        }
+    }
+
+    LaunchedEffect(vm.trail.isEmpty()) {
+        if (vm.trail.isEmpty()) {
+            boardScale = 1f
+            boardOffset = Offset.Zero
         }
     }
 
@@ -75,7 +88,25 @@ fun BikeParkScreen(vm: ParkViewModel) {
                     plans = vm.simulation,
                     elapsed = elapsed,
                     running = vm.simulationRunning,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures(panZoomLock = true) { centroid, pan, zoomChange, _ ->
+                                val oldScale = boardScale
+                                val newScale = (oldScale * zoomChange).coerceIn(.55f, 4f)
+                                val ratio = newScale / oldScale
+                                val viewportCenter = Offset(size.width / 2f, size.height / 2f)
+                                val focus = centroid - viewportCenter
+                                boardOffset = focus - (focus - boardOffset) * ratio + pan
+                                boardScale = newScale
+                            }
+                        }
+                        .graphicsLayer {
+                            scaleX = boardScale
+                            scaleY = boardScale
+                            translationX = boardOffset.x
+                            translationY = boardOffset.y
+                        }
                 )
                 if (vm.trail.isEmpty()) {
                     Surface(
@@ -95,6 +126,16 @@ fun BikeParkScreen(vm: ParkViewModel) {
                         onClick = {},
                         label = { Text("Three riders released! Every obstacle has opinions. 💥") },
                         modifier = Modifier.align(Alignment.TopCenter).padding(10.dp)
+                    )
+                }
+                if (boardScale != 1f || boardOffset != Offset.Zero) {
+                    AssistChip(
+                        onClick = {
+                            boardScale = 1f
+                            boardOffset = Offset.Zero
+                        },
+                        label = { Text("↺ Reset view") },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
                     )
                 }
             }
