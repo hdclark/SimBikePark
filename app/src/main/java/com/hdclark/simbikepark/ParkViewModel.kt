@@ -19,10 +19,34 @@ class ParkViewModel(app: Application) : AndroidViewModel(app) {
     var lastReport by mutableStateOf<String?>(null); private set
     var savedNames by mutableStateOf(loadNames()); private set
 
-    fun add(type: FeatureType) { trail += TrailPiece(type, nextHeading); lastReport = null }
-    fun undo() { if (trail.isNotEmpty()) trail.removeAt(trail.lastIndex) }
-    fun rotate(delta: Int) { nextHeading = (nextHeading + delta).mod(4) }
-    fun clear() { trail.clear(); simulation = emptyList(); simulationRunning = false; lastReport = null; nextHeading = 0 }
+    fun add(type: FeatureType) {
+        val incoming = trail.lastOrNull()?.heading
+        val heading = if (incoming != null && TrailMath.isReverse(incoming, nextHeading)) incoming else nextHeading.mod(4)
+        trail += TrailPiece(type, heading)
+        nextHeading = heading
+        lastReport = null
+    }
+
+    fun undo() {
+        if (trail.isNotEmpty()) trail.removeAt(trail.lastIndex)
+        nextHeading = trail.lastOrNull()?.heading ?: 0
+        simulation = emptyList()
+        simulationRunning = false
+        lastReport = null
+    }
+
+    fun setTurn(turn: Int) {
+        val base = trail.lastOrNull()?.heading ?: nextHeading
+        nextHeading = (base + turn.coerceIn(-1, 1)).mod(4)
+    }
+
+    fun clear() {
+        trail.clear()
+        simulation = emptyList()
+        simulationRunning = false
+        lastReport = null
+        nextHeading = 0
+    }
 
     fun startSimulation() {
         if (trail.isEmpty()) return
@@ -52,18 +76,29 @@ class ParkViewModel(app: Application) : AndroidViewModel(app) {
     fun load(name: String) {
         val raw = prefs.getString("trail:$name", null) ?: return
         val arr = JSONArray(raw)
-        trail.clear()
-        for (i in 0 until arr.length()) {
-            val obj = arr.getJSONObject(i)
-            runCatching { FeatureType.valueOf(obj.getString("type")) }.getOrNull()?.let {
-                trail += TrailPiece(it, obj.optInt("heading", 0))
+        val loaded = buildList {
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                runCatching { FeatureType.valueOf(obj.getString("type")) }.getOrNull()?.let {
+                    add(TrailPiece(it, obj.optInt("heading", 0)))
+                }
             }
         }
+        trail.clear()
+        trail.addAll(TrailMath.sanitized(loaded))
         nextHeading = trail.lastOrNull()?.heading ?: 0
-        simulation = emptyList(); simulationRunning = false; lastReport = null
+        simulation = emptyList()
+        simulationRunning = false
+        lastReport = null
     }
 
-    fun deleteSave(name: String) { prefs.edit().remove("trail:$name").apply(); savedNames = loadNames() }
+    fun deleteSave(name: String) {
+        prefs.edit().remove("trail:$name").apply()
+        savedNames = loadNames()
+    }
 
-    private fun loadNames(): List<String> = prefs.all.keys.filter { it.startsWith("trail:") }.map { it.removePrefix("trail:") }.sorted()
+    private fun loadNames(): List<String> = prefs.all.keys
+        .filter { it.startsWith("trail:") }
+        .map { it.removePrefix("trail:") }
+        .sorted()
 }
