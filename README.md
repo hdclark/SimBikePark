@@ -6,10 +6,11 @@ A bright, blocky Android bike-park toy built with Kotlin and Jetpack Compose. Sn
 
 - Isometric 2.5D, cel-shaded park rendered with Compose Canvas.
 - 14 buildable features: table tops, gap jumps, dirt jumps, wooden skinnies, launcher logs, drops, teeter-totters, saloon doors, toilet bowls, rock rolls, crocodile pits, rocks, roots, and berms.
-- Rotate the heading of the next block to create winding trails.
-- Three simultaneous simulated riders selected from a roster with different air, balance, nerve, and technical abilities.
-- Feature-specific crash susceptibility and animated, deliberately silly crash outcomes.
-- Local named trail saves and loads using Android SharedPreferences/JSON; no account or network access required.
+- Snap-aware placement: every tile has an explicit entry and exit connector, and the builder offers left, straight, or right placement relative to the current trail so consecutive pieces meet edge-to-edge without 180-degree foldbacks.
+- Smooth connector geometry through turns; simulated riders follow the same route geometry that is drawn on screen.
+- Three simultaneous simulated riders selected from a roster with different air, balance, nerve, technical, and speed abilities.
+- Per-feature rider handling and crash susceptibility. Each of the 14 feature types has a distinct traversal motion and a distinct crash animation rather than a generic obstacle animation.
+- Local named trail saves and loads using Android SharedPreferences/JSON; no account or network access required. Older saves containing impossible reverse connectors are repaired to a straight continuation when loaded.
 - Emoji used as visual punctuation for riders and comedy while the terrain itself is drawn as solid-color isometric geometry.
 
 ## Building and installing
